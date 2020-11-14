@@ -776,18 +776,35 @@ static int r82xx_set_tv_standard(struct r82xx_priv *priv,
 	uint8_t lt_att, flt_ext_widest, polyfil_cur;
 	int need_calibration;
 
-	/* BW < 6 MHz */
-	if_khz = 3570;
-	filt_cal_lo = 56000;	/* 52000->56000 */
-	filt_gain = 0x10;	/* +3db, 6mhz on */
-	img_r = 0x00;		/* image negative */
-	filt_q = 0x10;		/* r10[4]:low q(1'b1) */
-	hp_cor = 0x6b;		/* 1.7m disable, +2cap, 1.0mhz */
-	ext_enable = 0x60;	/* r30[6]=1 ext enable; r30[5]:1 ext at lna max-1 */
-	loop_through = 0x01;	/* r5[7], lt off */
-	lt_att = 0x00;		/* r31[7], lt att enable */
-	flt_ext_widest = 0x00;	/* r15[7]: flt_ext_wide off */
-	polyfil_cur = 0x60;	/* r25[6:5]:min */
+	if (bw < 6) {
+
+		if_khz = 3570;
+		filt_cal_lo = 56000;	/* 52000->56000 */
+		filt_gain = 0x10;	/* +3db, 6mhz on */
+		img_r = 0x00;		/* image negative */
+		filt_q = 0x10;		/* r10[4]:low q(1'b1) */
+		hp_cor = 0x6a;		/* 1.7m disable, +2cap, 1.25mhz */
+		ext_enable = 0x60;	/* r30[6]=1 ext enable; r30[5]:1 ext at lna max-1 */
+		loop_through = 0x00;	/* r5[7], lt on */
+		lt_att = 0x00;		/* r31[7], lt att enable */
+		flt_ext_widest = 0x00;	/* r15[7]: flt_ext_wide off */
+		polyfil_cur = 0x60;	/* r25[6:5]:min */
+
+	} else { 
+
+		/* BW >= 6 MHz */
+		if_khz = 3570;
+		filt_cal_lo = 56000;	/* 52000->56000 */
+		filt_gain = 0x10;	/* +3db, 6mhz on */
+		img_r = 0x00;		/* image negative */
+		filt_q = 0x10;		/* r10[4]:low q(1'b1) */
+		hp_cor = 0x6b;		/* 1.7m disable, +2cap, 1.0mhz */
+		ext_enable = 0x60;	/* r30[6]=1 ext enable; r30[5]:1 ext at lna max-1 */
+		loop_through = 0x01;	/* r5[7], lt off */
+		lt_att = 0x00;		/* r31[7], lt att enable */
+		flt_ext_widest = 0x00;	/* r15[7]: flt_ext_wide off */
+		polyfil_cur = 0x60;	/* r25[6:5]:min */
+	}
 
 	/* Initialize the shadow registers */
 	memcpy(priv->regs, r82xx_init_array, sizeof(r82xx_init_array));
@@ -1120,6 +1137,30 @@ int r82xx_set_freq(struct r82xx_priv *priv, uint32_t freq)
 		priv->input = air_cable1_in;
 		rc = r82xx_write_reg_mask(priv, 0x05, air_cable1_in, 0x60);
 	}
+
+err:
+	if (rc < 0)
+		fprintf(stderr, "%s: failed=%d\n", __FUNCTION__, rc);
+	return rc;
+}
+
+int r82xx_set_nomod(struct r82xx_priv *priv)
+{
+	int rc = -1;
+
+	fprintf(stderr, "Using R820T no-mod direct sampling mode\n");
+
+	rc = r82xx_set_tv_standard(priv, 8, TUNER_DIGITAL_TV, 0);
+	if (rc < 0)
+		goto err;
+
+	/* experimentally determined magic numbers
+	 * needs more experimenting with all the registers */
+	rc = r82xx_set_mux(priv, 300000000);
+	if (rc < 0)
+		goto err;
+
+	r82xx_set_pll(priv, 25000000);
 
 err:
 	if (rc < 0)
