@@ -99,7 +99,8 @@ void usage(void)
 		"\t[-n max number of linked list buffers to keep (default: 500)]\n"
 		"\t[-d device index (default: 0)]\n"
 		"\t[-P ppm_error (default: 0)]\n"
-		"\t[-T enable bias-T on GPIO PIN 0 (works for rtl-sdr.com v3 dongles)]\n");
+		"\t[-T enable bias-T on GPIO PIN 0 (works for rtl-sdr.com v3 dongles)]\n"
+		"\t[-D direct_sampling_mode, 0 (default/off), 1 (I), 2 (Q), 3 (no-mod)]\n");
 	exit(1);
 }
 
@@ -387,6 +388,7 @@ int main(int argc, char **argv)
 	int aiErr;
 	uint32_t buf_num = 0;
 	int dev_index = 0;
+	int direct_sampling = 0;
 	int dev_given = 0;
 	int gain = 0;
 	int ppm_error = 0;
@@ -407,7 +409,7 @@ int main(int argc, char **argv)
 	struct sigaction sigact, sigign;
 #endif
 
-	while ((opt = getopt(argc, argv, "a:p:f:g:s:b:n:d:P:T")) != -1) {
+	while ((opt = getopt(argc, argv, "a:p:f:g:s:b:n:d:P:T:D")) != -1) {
 		switch (opt) {
 		case 'd':
 			dev_index = verbose_device_search(optarg);
@@ -440,6 +442,9 @@ int main(int argc, char **argv)
 		case 'T':
 			enable_biastee = 1;
 			break;
+		case 'D':
+			direct_sampling = atoi(optarg); 
+			break;
 		default:
 			usage();
 			break;
@@ -455,6 +460,10 @@ int main(int argc, char **argv)
 
 	if (dev_index < 0) {
 	    exit(1);
+	}
+
+	if (direct_sampling) {
+		verbose_direct_sampling(dev, direct_sampling);
 	}
 
 	rtlsdr_open(&dev, (uint32_t)dev_index);
